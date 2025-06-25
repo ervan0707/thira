@@ -5,6 +5,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
+    thira.url = "github:ervan0707/thira";
   };
 
   outputs =
@@ -13,6 +14,7 @@
       nixpkgs,
       rust-overlay,
       flake-utils,
+      thira,
       ...
     }:
     flake-utils.lib.eachSystem
@@ -99,6 +101,7 @@
                 pkg-config
                 openssl
                 rustup
+                thira.packages.${system}.default
               ]
               ++ platformDeps;
             RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";

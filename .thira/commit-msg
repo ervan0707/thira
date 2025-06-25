@@ -1,6 +1,6 @@
 #!/bin/sh
 
-/Users/ervan/Documents/Projects/THIRA2/thira/target/debug/thira commit validate "$1"
+/nix/store/sdari5s5pysmg8ygyvq5frxyaf4aqb28-thira-0.0.1/bin/thira commit validate "$1"
 if [ $? -ne 0 ]; then
   exit 1
 fi

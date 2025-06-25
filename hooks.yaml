@@ -57,6 +57,7 @@ lint:
     - config
     - deps
     - tests
+    - nix
   min_subject_length: 3
   max_subject_length: 72
   max_body_line_length: 100
