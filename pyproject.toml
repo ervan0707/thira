@@ -1,0 +1,44 @@
+[build-system]
+requires = ["maturin>=1.8.6"]
+build-backend = "maturin"
+
+[project]
+name = "thira"
+description = "A Git hooks manager and commit message linter for automating development workflows"
+readme = "README.md"
+requires-python = ">=3.7"
+dynamic = ["version"]
+license = { text = "MIT" }
+authors = [{ name = "Ervan", email = "ervanroot@gmail.com" }]
+keywords = [
+    "cli",
+    "automation",
+    "workflow",
+    "development",
+    "git-hooks",
+    "commit-linter",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/ervan0707/thira"
+Repository = "https://github.com/ervan0707/thira"
+Documentation = "https://github.com/ervan0707/thira#readme"
+"Bug Reports" = "https://github.com/ervan0707/thira/issues"
+
+[tool.maturin]
+bindings = "bin"
+strip = true

@@ -1,0 +1,33 @@
+{
+  "name": "thira",
+  "version": "0.0.0",
+  "description": "A Git hooks manager and commit message linter for automating development workflows",
+  "bin": "lib/index.js",
+  "private": true,
+  "keywords": [
+    "cli",
+    "automation",
+    "workflow",
+    "development",
+    "git-hooks",
+    "commit-linter"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ervan0707/thira.git"
+  },
+  "author": "Ervan <ervanroot@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ervan0707/thira/issues"
+  },
+  "homepage": "https://github.com/ervan0707/thira#readme",
+  "optionalDependencies": {
+    "thira-linux-x64": "0.9.0",
+    "thira-linux-arm64": "0.9.0",
+    "thira-darwin-x64": "0.9.0",
+    "thira-darwin-arm64": "0.9.0",
+    "thira-windows-x64": "0.9.0",
+    "thira-windows-arm64": "0.9.0"
+  }
+}

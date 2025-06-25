@@ -1,0 +1,448 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  packages: write
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.semantic.outputs.new_release_version }}
+      release_created: ${{ steps.semantic.outputs.new_release_published }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          semantic_version: 24.2.3
+          dry_run: true # Only determine version without publishing
+          extra_plugins: |
+            @semantic-release/changelog@6.0.3
+            @semantic-release/git
+            @semantic-release/exec
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Update Cargo.toml version
+        if: steps.semantic.outputs.new_release_published == 'true'
+        run: |
+          echo "Updating version to ${{ steps.semantic.outputs.new_release_version }}"
+          sed -i.bak -E 's/^version = "[^"]+"$/version = "${{ steps.semantic.outputs.new_release_version }}"/' Cargo.toml
+          echo "Updated Cargo.toml:"
+          cat Cargo.toml | grep version
+
+      - name: Upload Cargo.toml
+        if: steps.semantic.outputs.new_release_published == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-toml
+          path: Cargo.toml
+          retention-days: 1
+
+      # Update version in package.json
+      - name: Update package versions
+        run: |
+          perl -i -pe 's/(\"thira-[^\"]+\": *)\"[^\"]+\"/\1\"${{ steps.semantic.outputs.new_release_version }}\"/g' packages/npm/thira/package.json
+
+      # Upload the modified package.json as an artifact
+      - name: Upload package.json artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-json
+          path: packages/npm/thira/package.json
+          retention-days: 1
+
+  build-platform-artifact:
+    name: Build Platform Artifacts
+    needs: prepare
+    if: needs.prepare.outputs.release_created == 'true'
+    runs-on: ${{ matrix.build.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - {
+              NAME: linux-x64-glibc,
+              OS: ubuntu-latest,
+              TOOLCHAIN: stable,
+              TARGET: x86_64-unknown-linux-gnu,
+              BINARY_NAME: thira,
+              ASSET_NAME: thira-linux-x86_64,
+              ARCHIVE_EXT: tar.gz,
+              MATURIN_TARGET: x86_64,
+            }
+          - {
+              NAME: linux-arm64-glibc,
+              OS: ubuntu-latest,
+              TOOLCHAIN: stable,
+              TARGET: aarch64-unknown-linux-gnu,
+              BINARY_NAME: thira,
+              ASSET_NAME: thira-linux-arm64,
+              ARCHIVE_EXT: tar.gz,
+              MATURIN_TARGET: aarch64,
+            }
+          - {
+              NAME: win32-x64-msvc,
+              OS: windows-2022,
+              TOOLCHAIN: stable,
+              TARGET: x86_64-pc-windows-msvc,
+              BINARY_NAME: thira.exe,
+              ASSET_NAME: thira-windows-x86_64,
+              ARCHIVE_EXT: zip,
+              MATURIN_TARGET: x64,
+            }
+          - {
+              NAME: win32-arm64-msvc,
+              OS: windows-2022,
+              TOOLCHAIN: stable,
+              TARGET: aarch64-pc-windows-msvc,
+              BINARY_NAME: thira.exe,
+              ASSET_NAME: thira-windows-arm64,
+              ARCHIVE_EXT: zip,
+              MATURIN_TARGET: aarch64-pc-windows-msvc,
+            }
+          - {
+              NAME: darwin-x64,
+              OS: macos-14,
+              TOOLCHAIN: stable,
+              TARGET: x86_64-apple-darwin,
+              BINARY_NAME: thira,
+              ASSET_NAME: thira-darwin-x86_64,
+              ARCHIVE_EXT: tar.gz,
+              MATURIN_TARGET: x86_64,
+            }
+          - {
+              NAME: darwin-arm64,
+              OS: macos-14,
+              TOOLCHAIN: stable,
+              TARGET: aarch64-apple-darwin,
+              BINARY_NAME: thira,
+              ASSET_NAME: thira-darwin-arm64,
+              ARCHIVE_EXT: tar.gz,
+              MATURIN_TARGET: aarch64,
+            }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Download updated Cargo.toml
+        uses: actions/download-artifact@v4
+        with:
+          name: cargo-toml
+          path: .
+
+      - name: Build Python wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.build.MATURIN_TARGET }}
+          args: --release --out dist
+          sccache: true
+          manylinux: auto
+
+      - name: Package binary (Unix)
+        if: matrix.build.OS != 'windows-2022'
+        shell: bash
+        run: |
+          mkdir -p binary-dist
+          cp target/${{ matrix.build.TARGET }}/release/${{ matrix.build.BINARY_NAME }} binary-dist/${{ matrix.build.ASSET_NAME }}
+          cd binary-dist && tar -czf ${{ matrix.build.ASSET_NAME }}.tar.gz ${{ matrix.build.ASSET_NAME }}
+
+      - name: Package binary (Windows)
+        if: matrix.build.OS == 'windows-2022'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path binary-dist
+          Copy-Item "target\${{ matrix.build.TARGET }}\release\${{ matrix.build.BINARY_NAME }}" -Destination "binary-dist\${{ matrix.build.ASSET_NAME }}.exe"
+          Compress-Archive -Path "binary-dist\${{ matrix.build.ASSET_NAME }}.exe" -DestinationPath "binary-dist\${{ matrix.build.ASSET_NAME }}.zip"
+
+      - name: Upload Platform Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.build.ASSET_NAME }}.${{ matrix.build.ARCHIVE_EXT }}
+          path: binary-dist/${{ matrix.build.ASSET_NAME }}.${{ matrix.build.ARCHIVE_EXT }}
+          retention-days: 1
+
+      - name: Upload Python Wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.build.NAME }}
+          path: dist
+          retention-days: 1
+
+      - name: Create Build Info
+        shell: bash
+        run: |
+          mkdir -p build-info
+          echo '{
+            "name": "${{ matrix.build.NAME }}",
+            "os": "${{ matrix.build.OS }}",
+            "binary_name": "${{ matrix.build.BINARY_NAME }}"
+          }' > build-info/build-info.json
+
+      - name: Upload Build Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-info-${{ matrix.build.NAME }}
+          path: build-info/build-info.json
+          retention-days: 1
+
+  sdist:
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.release_created == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download updated Cargo.toml
+        uses: actions/download-artifact@v4
+        with:
+          name: cargo-toml
+          path: .
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist
+
+  publish-python-packages:
+    name: Publish Python Packages
+    needs: [prepare, build-platform-artifact, sdist]
+    if: needs.prepare.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      # Use to sign the release artifacts
+      id-token: write
+      # Used to upload release artifacts
+      contents: write
+      # Used to generate artifact attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "wheels-*/*"
+
+      - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        with:
+          command: upload
+          args:  --skip-existing wheels-*/*
+          # args: --repository-url=https://test.pypi.org/legacy/ --skip-existing wheels-*/*
+
+  # publish-npm-packages:
+  #   name: Publish NPM Packages
+  #   needs: [prepare, build-platform-artifact, sdist]
+  #   if: needs.prepare.outputs.release_created == 'true'
+  #   runs-on: ubuntu-latest
+  #   continue-on-error: true
+
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+
+  # - name: Install node
+  #   uses: actions/setup-node@v4
+  #   with:
+  #     node-version: "20"
+  #     registry-url: "https://registry.npmjs.org"
+
+  # Download platform artifacts and build info
+  # - name: Download Platform Artifacts
+  #   uses: actions/download-artifact@v4
+  #   with:
+  #     pattern: thira-*
+  #     path: binary-dist
+  #     merge-multiple: true
+
+  # - name: Download build info
+  #   uses: actions/download-artifact@v4
+  #   with:
+  #     pattern: build-info-*
+  #     path: build-info
+
+  # - name: Publish to NPM
+  # shell: bash
+  # run: |
+  #   echo "VERSION: ${{needs.prepare.outputs.new_version}}"
+  #   cd packages/npm
+
+  #   # Process each build artifact
+  #   for info_file in ../../build-info/build-info-*/build-info.json; do
+  #     # Parse build info
+  #     build_info=$(cat "$info_file")
+  #     build_name=$(echo "$build_info" | jq -r '.name')
+  #     build_os=$(echo "$build_info" | jq -r '.os')
+  #     binary_name=$(echo "$build_info" | jq -r '.binary_name')
+
+  #     echo "Processing build info:"
+  #     echo "  build_name: $build_name"
+  #     echo "  build_os: $build_os"
+  #     echo "  binary_name: $binary_name"
+
+  #     # set the binary name
+  #     bin="thira"
+
+  #     # derive the OS and architecture from the build name
+  #     node_os=$(echo "$build_name" | cut -d '-' -f1)
+  #     export node_os
+  #     node_arch=$(echo "$build_name" | cut -d '-' -f2)
+  #     export node_arch
+
+  #     # set the version
+  #     export node_version="${{needs.prepare.outputs.new_version}}"
+
+  #     # set the package name and artifact name
+  #     if [ "$build_os" = "windows-2022" ]; then
+  #       export node_pkg="${bin}-windows-${node_arch}"
+  #       if [ "$node_arch" = "x64" ]; then
+  #         artifact_name="thira-windows-x86_64"
+  #       else
+  #         artifact_name="thira-windows-arm64"
+  #       fi
+  #     else
+  #       export node_pkg="${bin}-${node_os}-${node_arch}"
+  #       if [ "$node_os" = "darwin" ]; then
+  #         if [ "$node_arch" = "x64" ]; then
+  #           artifact_name="thira-darwin-x86_64"
+  #         else
+  #           artifact_name="thira-darwin-arm64"
+  #         fi
+  #       else
+  #         if [ "$node_arch" = "x64" ]; then
+  #           artifact_name="thira-linux-x86_64"
+  #         else
+  #           artifact_name="thira-linux-arm64"
+  #         fi
+  #       fi
+  #     fi
+
+  #     echo "Package name: $node_pkg"
+  #     echo "Artifact name: $artifact_name"
+
+  #     # create the package directory
+  #     mkdir -p "${node_pkg}/bin"
+
+  #     # generate package.json from the template
+  #     envsubst < package.json.tmpl > "${node_pkg}/package.json"
+
+  #     # Extract and copy the binary based on OS
+  #     if [ "$build_os" = "windows-2022" ]; then
+  #       # For Windows (.zip)
+  #       echo "Extracting ../../binary-dist/${artifact_name}.zip"
+  #       unzip -j "../../binary-dist/${artifact_name}.zip" -d "${node_pkg}/bin/"
+  #       mv "${node_pkg}/bin/${artifact_name}.exe" "${node_pkg}/bin/${bin}.exe"
+  #     else
+  #       # For Unix (.tar.gz)
+  #       echo "Extracting ../../binary-dist/${artifact_name}.tar.gz"
+  #       tar -xzvf "../../binary-dist/${artifact_name}.tar.gz" -C "${node_pkg}/bin/"
+  #       mv "${node_pkg}/bin/${artifact_name}" "${node_pkg}/bin/${bin}"
+  #     fi
+
+  #     echo "Contents of ${node_pkg}/bin:"
+  #     ls -la "${node_pkg}/bin"
+
+  #     # publish the package
+  #     cd "${node_pkg}"
+  #     npm publish --access public
+  #     cd ../
+  #   done
+  # env:
+  #   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-cargo:
+    name: Publish to crates.io
+    needs: [prepare, build-platform-artifact, sdist]
+    if: needs.prepare.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download updated Cargo.toml
+        uses: actions/download-artifact@v4
+        with:
+          name: cargo-toml
+          path: .
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Publish to crates.io
+        uses: actions-rs/cargo@v1
+        with:
+          command: publish
+          args: --token ${{ secrets.CRATES_IO_TOKEN }} --allow-dirty
+
+  release:
+    name: Create Release
+    needs:
+      [prepare, build-platform-artifact, publish-python-packages, publish-cargo]
+    if: needs.prepare.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Download the modified package.json
+      - name: Download package.json artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: package-json
+          path: packages/npm/thira/
+
+      - name: Create dist directory
+        run: mkdir -p binary-dist
+
+      - name: Download Platform Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: thira-*
+          path: binary-dist
+          merge-multiple: true
+
+      - name: Move artifacts to root
+        run: mv binary-dist/* ./
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          semantic_version: 24.2.3
+          # dry_run: true
+          extra_plugins: |
+            @semantic-release/changelog@6.0.3
+            @semantic-release/git
+            @semantic-release/exec
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,62 @@
+hooks:
+  commit-msg:
+    - command: ${thira}
+      args:
+        - commit
+        - validate
+        - $1
+  pre-commit:
+    - command: cargo
+      args:
+        - test
+    - command: cargo
+      args:
+        - clippy
+
+scripts:
+  test-all:
+    parallel: true
+    max_threads: 2
+    commands:
+      - command: "sh test1.sh"
+        description: "Run test script 1"
+        working_dir: "examples"
+        env:
+          TEST_VALUE: "123"
+          TEST_MODE: "parallel-1"
+      - command: "sh test2.sh"
+        description: "Run test script 2"
+        working_dir: "examples"
+        env:
+          TEST_VALUE: "456"
+          TEST_MODE: "parallel-2"
+
+options:
+  auto_install: true
+  hooks_dir: .thira
+
+lint:
+  types:
+    - feat
+    - fix
+    - docs
+    - style
+    - refactor
+    - perf
+    - test
+    - build
+    - ci
+    - chore
+    - revert
+  scopes:
+    - api
+    - ui
+    - db
+    - core
+    - cli
+    - config
+    - deps
+    - tests
+  min_subject_length: 3
+  max_subject_length: 72
+  max_body_line_length: 100

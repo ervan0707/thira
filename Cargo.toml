@@ -1,0 +1,39 @@
+[package]
+name = "thira"
+version = "0.0.0"
+edition = "2021"
+description = "A Git hooks manager and commit message linter for automating development workflows"
+authors = ["Ervan <ervanroot@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/ervan0707/thira"
+documentation = "https://github.com/ervan0707/thira#readme"
+homepage = "https://github.com/ervan0707/thira"
+keywords = ["cli", "automation", "workflow", "git-hooks", "commit-linter"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
+exclude = [
+    ".github/*",
+    ".gitignore",
+    ".thira/*",
+    "packages/*",
+    "hooks.yaml",
+    "hooks2.yaml",
+    "flake.nix",
+    "flake.lock",
+    ".direnv/*",
+    "examples/*",
+    "install.sh",
+]
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+thiserror = "1.0"
+anyhow = "1.0"
+colored = "2.0"
+dirs = "5.0"
+regex = "1.9"
+crossterm = "0.27"
+parking_lot = "0.12"
+num_cpus = "1.13"

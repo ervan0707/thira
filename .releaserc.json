@@ -1,0 +1,70 @@
+{
+  "branches": [
+    "main"
+  ],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/changelog",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "perl -i -pe \"s/(\\\\\\\"thira-[^\\\\\\\"]+\\\\\\\": *)?\\\\\\\"?\\\\*\\\\\\\"?/\\1\\\\\\\"${nextRelease.version}\\\\\\\"/g\" packages/npm/thira/package.json"
+      }
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        "pkgRoot": "packages/npm/thira"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "thira-linux-x86_64.tar.gz",
+            "label": "Linux x86_64 binary"
+          },
+          {
+            "path": "thira-linux-arm64.tar.gz",
+            "label": "Linux ARM64 binary"
+          },
+          {
+            "path": "thira-darwin-x86_64.tar.gz",
+            "label": "macOS x86_64 binary"
+          },
+          {
+            "path": "thira-darwin-arm64.tar.gz",
+            "label": "macOS ARM64 binary"
+          },
+          {
+            "path": "thira-windows-x86_64.zip",
+            "label": "Windows x86_64 binary"
+          },
+          {
+            "path": "thira-windows-arm64.zip",
+            "label": "Windows ARM64 binary"
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "sed -i.bak -E 's/^version = \"[^\"]+\"$/version = \"${nextRelease.version}\"/' Cargo.toml"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "CHANGELOG.md",
+          "Cargo.toml",
+          "packages/npm/thira/package.json"
+        ],
+        "message": "chore(release): ${nextRelease.version}\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}
