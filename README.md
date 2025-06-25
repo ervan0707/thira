@@ -45,6 +45,12 @@ npm install -g thira
 # Install with pip
 pip install thira
 
+# Install with Nix (flakes)
+nix profile install github:ervan0707/thira
+
+# Or run directly without installing
+nix run github:ervan0707/thira
+
 # Initialize configuration
 thira hooks init
 
