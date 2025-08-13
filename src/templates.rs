@@ -1,4 +1,4 @@
-use crate::config::{Config, Hook, LinterConfig, Options, ScriptConfig, CommandConfig};
+use crate::config::{CommandConfig, Config, Hook, LinterConfig, Options, ScriptConfig};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -18,32 +18,32 @@ impl ProjectTemplate {
             (
                 ProjectTemplate::Rust,
                 "Rust Project",
-                "Cargo-based Rust project with clippy, tests, and formatting"
+                "Cargo-based Rust project with clippy, tests, and formatting",
             ),
             (
                 ProjectTemplate::NodeJs,
                 "Node.js Project",
-                "NPM/Yarn project with linting, testing, and formatting"
+                "NPM/Yarn project with linting, testing, and formatting",
             ),
             (
                 ProjectTemplate::Python,
                 "Python Project",
-                "Python project with black formatting, flake8 linting, and pytest"
+                "Python project with black formatting, flake8 linting, and pytest",
             ),
             (
                 ProjectTemplate::Go,
                 "Go Project",
-                "Go project with formatting, linting, and testing"
+                "Go project with formatting, linting, and testing",
             ),
             (
                 ProjectTemplate::Java,
                 "Java Project",
-                "Maven/Gradle Java project with formatting and testing"
+                "Maven/Gradle Java project with formatting and testing",
             ),
             (
                 ProjectTemplate::Generic,
                 "Generic Project",
-                "Basic template with minimal configuration"
+                "Basic template with minimal configuration",
             ),
         ]
     }
@@ -74,7 +74,12 @@ impl ProjectTemplate {
                 },
                 Hook {
                     command: "cargo".to_string(),
-                    args: vec!["clippy".to_string(), "--".to_string(), "-D".to_string(), "warnings".to_string()],
+                    args: vec![
+                        "clippy".to_string(),
+                        "--".to_string(),
+                        "-D".to_string(),
+                        "warnings".to_string(),
+                    ],
                     working_dir: None,
                 },
                 Hook {

@@ -105,8 +105,11 @@ impl GitRepo {
         }
 
         // Only clean up custom hooks directory if it's not .git/hooks and not .git
-        if !self.hooks_dir.ends_with(".git/hooks") && !self.hooks_dir.ends_with(".git") && self.hooks_dir.exists() {
-             std::fs::remove_dir_all(&self.hooks_dir)?;
+        if !self.hooks_dir.ends_with(".git/hooks")
+            && !self.hooks_dir.ends_with(".git")
+            && self.hooks_dir.exists()
+        {
+            std::fs::remove_dir_all(&self.hooks_dir)?;
         }
 
         Ok(())

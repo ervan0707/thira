@@ -1,13 +1,16 @@
 use crate::templates::ProjectTemplate;
 use colored::*;
-use inquire::{Select, Confirm};
+use inquire::{Confirm, Select};
 
 pub struct SetupWizard;
 
 impl SetupWizard {
     pub fn run() -> Result<ProjectTemplate, Box<dyn std::error::Error>> {
         println!("{}", "🎉 Welcome to Thira Setup Wizard!".cyan().bold());
-        println!("{}", "Let's configure your Git hooks for this project.".white());
+        println!(
+            "{}",
+            "Let's configure your Git hooks for this project.".white()
+        );
         println!();
 
         // Project type selection
@@ -17,12 +20,11 @@ impl SetupWizard {
             .map(|(_, name, description)| format!("{:<15} - {}", name, description))
             .collect();
 
-        let selection = Select::new(
-            "What type of project are you setting up?",
-            options
-        )
-        .with_help_message("This will configure appropriate hooks and scripts for your project type")
-        .prompt()?;
+        let selection = Select::new("What type of project are you setting up?", options)
+            .with_help_message(
+                "This will configure appropriate hooks and scripts for your project type",
+            )
+            .prompt()?;
 
         let selected_index = templates
             .iter()
@@ -35,7 +37,7 @@ impl SetupWizard {
 
         println!();
         println!("{}", format!("✓ Selected: {}", template_name).green());
-        
+
         // Show what will be configured
         Self::preview_configuration(template);
 
@@ -55,9 +57,9 @@ impl SetupWizard {
     fn preview_configuration(template: &ProjectTemplate) {
         println!();
         println!("{}", "📋 Configuration Preview:".blue().bold());
-        
+
         let config = template.to_config();
-        
+
         // Show hooks
         println!("{}", "   Git Hooks:".yellow());
         for (hook_name, hooks) in &config.hooks {
@@ -89,7 +91,7 @@ impl SetupWizard {
         println!("     • Conventional Commits enforced");
         println!("     • {} allowed types", config.lint.types.len());
         println!("     • {} predefined scopes", config.lint.scopes.len());
-        
+
         println!();
     }
 
@@ -97,14 +99,26 @@ impl SetupWizard {
         println!();
         println!("{}", "🎉 Setup Complete!".green().bold());
         println!();
-        println!("{}", format!("✓ {} configuration created successfully", template_name).green());
+        println!(
+            "{}",
+            format!("✓ {} configuration created successfully", template_name).green()
+        );
         println!("{}", "✓ hooks.yaml file generated".green());
         println!();
         println!("{}", "Next steps:".blue().bold());
         println!("  1. Review the generated {} file", "hooks.yaml".cyan());
-        println!("  2. Run {} to install the hooks", "thira hooks install".cyan());
-        println!("  3. Run {} to see available scripts", "thira scripts list".cyan());
+        println!(
+            "  2. Run {} to install the hooks",
+            "thira hooks install".cyan()
+        );
+        println!(
+            "  3. Run {} to see available scripts",
+            "thira scripts list".cyan()
+        );
         println!();
-        println!("{}", "💡 Tip: You can customize the configuration by editing hooks.yaml".yellow());
+        println!(
+            "{}",
+            "💡 Tip: You can customize the configuration by editing hooks.yaml".yellow()
+        );
     }
 }

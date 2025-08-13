@@ -215,13 +215,13 @@ fn run() -> Result<()> {
                             let config = template.to_config();
                             let template_name = match template {
                                 templates::ProjectTemplate::Rust => "Rust Project",
-                                templates::ProjectTemplate::NodeJs => "Node.js Project", 
+                                templates::ProjectTemplate::NodeJs => "Node.js Project",
                                 templates::ProjectTemplate::Python => "Python Project",
                                 templates::ProjectTemplate::Go => "Go Project",
                                 templates::ProjectTemplate::Java => "Java Project",
                                 templates::ProjectTemplate::Generic => "Generic Project",
                             };
-                            
+
                             config.save()?;
                             SetupWizard::show_success_message(template_name);
                             return Ok(());
