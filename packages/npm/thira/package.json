@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "A Git hooks manager and commit message linter for automating development workflows",
   "bin": "lib/index.js",
-  "private": true,
+  "private": false,
   "keywords": [
     "cli",
     "automation",
