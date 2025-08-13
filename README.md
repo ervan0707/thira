@@ -40,7 +40,6 @@ cargo install thira
 
 # Install with NPM
 npm install -g thira
-# The `thira` NPM package is currently marked as a security holding package and is not available for installation. Please use the Cargo or pip installation methods for now.
 
 # Install with pip
 pip install thira
