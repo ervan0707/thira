@@ -35,7 +35,7 @@ jobs:
             @semantic-release/exec
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Update Cargo.toml version
         if: steps.semantic.outputs.new_release_published == 'true'
@@ -253,125 +253,125 @@ jobs:
           args:  --skip-existing wheels-*/*
           # args: --repository-url=https://test.pypi.org/legacy/ --skip-existing wheels-*/*
 
-  # publish-npm-packages:
-  #   name: Publish NPM Packages
-  #   needs: [prepare, build-platform-artifact, sdist]
-  #   if: needs.prepare.outputs.release_created == 'true'
-  #   runs-on: ubuntu-latest
-  #   continue-on-error: true
+  publish-npm-packages:
+    name: Publish NPM Packages
+    needs: [prepare, build-platform-artifact, sdist]
+    if: needs.prepare.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
 
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  # - name: Install node
-  #   uses: actions/setup-node@v4
-  #   with:
-  #     node-version: "20"
-  #     registry-url: "https://registry.npmjs.org"
+      - name: Install node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
 
-  # Download platform artifacts and build info
-  # - name: Download Platform Artifacts
-  #   uses: actions/download-artifact@v4
-  #   with:
-  #     pattern: thira-*
-  #     path: binary-dist
-  #     merge-multiple: true
+      # Download platform artifacts and build info
+      - name: Download Platform Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: thira-*
+          path: binary-dist
+          merge-multiple: true
 
-  # - name: Download build info
-  #   uses: actions/download-artifact@v4
-  #   with:
-  #     pattern: build-info-*
-  #     path: build-info
+      - name: Download build info
+        uses: actions/download-artifact@v4
+        with:
+          pattern: build-info-*
+          path: build-info
 
-  # - name: Publish to NPM
-  # shell: bash
-  # run: |
-  #   echo "VERSION: ${{needs.prepare.outputs.new_version}}"
-  #   cd packages/npm
+      - name: Publish to NPM
+        shell: bash
+        run: |
+          echo "VERSION: ${{needs.prepare.outputs.new_version}}"
+          cd packages/npm
 
-  #   # Process each build artifact
-  #   for info_file in ../../build-info/build-info-*/build-info.json; do
-  #     # Parse build info
-  #     build_info=$(cat "$info_file")
-  #     build_name=$(echo "$build_info" | jq -r '.name')
-  #     build_os=$(echo "$build_info" | jq -r '.os')
-  #     binary_name=$(echo "$build_info" | jq -r '.binary_name')
+          # Process each build artifact
+          for info_file in ../../build-info/build-info-*/build-info.json; do
+            # Parse build info
+            build_info=$(cat "$info_file")
+            build_name=$(echo "$build_info" | jq -r '.name')
+            build_os=$(echo "$build_info" | jq -r '.os')
+            binary_name=$(echo "$build_info" | jq -r '.binary_name')
 
-  #     echo "Processing build info:"
-  #     echo "  build_name: $build_name"
-  #     echo "  build_os: $build_os"
-  #     echo "  binary_name: $binary_name"
+            echo "Processing build info:"
+            echo "  build_name: $build_name"
+            echo "  build_os: $build_os"
+            echo "  binary_name: $binary_name"
 
-  #     # set the binary name
-  #     bin="thira"
+            # set the binary name
+            bin="thira"
 
-  #     # derive the OS and architecture from the build name
-  #     node_os=$(echo "$build_name" | cut -d '-' -f1)
-  #     export node_os
-  #     node_arch=$(echo "$build_name" | cut -d '-' -f2)
-  #     export node_arch
+            # derive the OS and architecture from the build name
+            node_os=$(echo "$build_name" | cut -d '-' -f1)
+            export node_os
+            node_arch=$(echo "$build_name" | cut -d '-' -f2)
+            export node_arch
 
-  #     # set the version
-  #     export node_version="${{needs.prepare.outputs.new_version}}"
+            # set the version
+            export node_version="${{needs.prepare.outputs.new_version}}"
 
-  #     # set the package name and artifact name
-  #     if [ "$build_os" = "windows-2022" ]; then
-  #       export node_pkg="${bin}-windows-${node_arch}"
-  #       if [ "$node_arch" = "x64" ]; then
-  #         artifact_name="thira-windows-x86_64"
-  #       else
-  #         artifact_name="thira-windows-arm64"
-  #       fi
-  #     else
-  #       export node_pkg="${bin}-${node_os}-${node_arch}"
-  #       if [ "$node_os" = "darwin" ]; then
-  #         if [ "$node_arch" = "x64" ]; then
-  #           artifact_name="thira-darwin-x86_64"
-  #         else
-  #           artifact_name="thira-darwin-arm64"
-  #         fi
-  #       else
-  #         if [ "$node_arch" = "x64" ]; then
-  #           artifact_name="thira-linux-x86_64"
-  #         else
-  #           artifact_name="thira-linux-arm64"
-  #         fi
-  #       fi
-  #     fi
+            # set the package name and artifact name
+            if [ "$build_os" = "windows-2022" ]; then
+              export node_pkg="${bin}-windows-${node_arch}"
+              if [ "$node_arch" = "x64" ]; then
+                artifact_name="thira-windows-x86_64"
+              else
+                artifact_name="thira-windows-arm64"
+              fi
+            else
+              export node_pkg="${bin}-${node_os}-${node_arch}"
+              if [ "$node_os" = "darwin" ]; then
+                if [ "$node_arch" = "x64" ]; then
+                  artifact_name="thira-darwin-x86_64"
+                else
+                  artifact_name="thira-darwin-arm64"
+                fi
+              else
+                if [ "$node_arch" = "x64" ]; then
+                  artifact_name="thira-linux-x86_64"
+                else
+                  artifact_name="thira-linux-arm64"
+                fi
+              fi
+            fi
 
-  #     echo "Package name: $node_pkg"
-  #     echo "Artifact name: $artifact_name"
+            echo "Package name: $node_pkg"
+            echo "Artifact name: $artifact_name"
 
-  #     # create the package directory
-  #     mkdir -p "${node_pkg}/bin"
+            # create the package directory
+            mkdir -p "${node_pkg}/bin"
 
-  #     # generate package.json from the template
-  #     envsubst < package.json.tmpl > "${node_pkg}/package.json"
+            # generate package.json from the template
+            envsubst < package.json.tmpl > "${node_pkg}/package.json"
 
-  #     # Extract and copy the binary based on OS
-  #     if [ "$build_os" = "windows-2022" ]; then
-  #       # For Windows (.zip)
-  #       echo "Extracting ../../binary-dist/${artifact_name}.zip"
-  #       unzip -j "../../binary-dist/${artifact_name}.zip" -d "${node_pkg}/bin/"
-  #       mv "${node_pkg}/bin/${artifact_name}.exe" "${node_pkg}/bin/${bin}.exe"
-  #     else
-  #       # For Unix (.tar.gz)
-  #       echo "Extracting ../../binary-dist/${artifact_name}.tar.gz"
-  #       tar -xzvf "../../binary-dist/${artifact_name}.tar.gz" -C "${node_pkg}/bin/"
-  #       mv "${node_pkg}/bin/${artifact_name}" "${node_pkg}/bin/${bin}"
-  #     fi
+            # Extract and copy the binary based on OS
+            if [ "$build_os" = "windows-2022" ]; then
+              # For Windows (.zip)
+              echo "Extracting ../../binary-dist/${artifact_name}.zip"
+              unzip -j "../../binary-dist/${artifact_name}.zip" -d "${node_pkg}/bin/"
+              mv "${node_pkg}/bin/${artifact_name}.exe" "${node_pkg}/bin/${bin}.exe"
+            else
+              # For Unix (.tar.gz)
+              echo "Extracting ../../binary-dist/${artifact_name}.tar.gz"
+              tar -xzvf "../../binary-dist/${artifact_name}.tar.gz" -C "${node_pkg}/bin/"
+              mv "${node_pkg}/bin/${artifact_name}" "${node_pkg}/bin/${bin}"
+            fi
 
-  #     echo "Contents of ${node_pkg}/bin:"
-  #     ls -la "${node_pkg}/bin"
+            echo "Contents of ${node_pkg}/bin:"
+            ls -la "${node_pkg}/bin"
 
-  #     # publish the package
-  #     cd "${node_pkg}"
-  #     npm publish --access public
-  #     cd ../
-  #   done
-  # env:
-  #   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            # publish the package
+            cd "${node_pkg}"
+            npm publish --access public
+            cd ../
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-cargo:
     name: Publish to crates.io
@@ -404,7 +404,7 @@ jobs:
   release:
     name: Create Release
     needs:
-      [prepare, build-platform-artifact, publish-python-packages, publish-cargo]
+      [prepare, build-platform-artifact, publish-python-packages, publish-cargo, publish-npm-packages]
     if: needs.prepare.outputs.release_created == 'true'
     runs-on: ubuntu-latest
 
@@ -445,4 +445,4 @@ jobs:
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
