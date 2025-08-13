@@ -2,12 +2,15 @@ mod config;
 mod error;
 mod git;
 mod hooks;
+mod interactive;
 mod linter;
 mod scripts;
+mod templates;
 
 use clap::{Command, CommandFactory, Parser, Subcommand};
 use colored::*;
 use error::{HookError, Result};
+use interactive::SetupWizard;
 use std::process;
 
 #[derive(Parser)]
@@ -40,7 +43,10 @@ enum Commands {
 #[derive(Subcommand)]
 enum HooksCommands {
     #[command(about = "Initialize hooks configuration")]
-    Init,
+    Init {
+        #[arg(long, help = "Skip interactive setup wizard")]
+        no_interactive: bool,
+    },
 
     #[command(about = "Install git hooks")]
     Install,
@@ -186,7 +192,7 @@ fn run() -> Result<()> {
 
     match cli.command {
         Commands::Hooks(cmd) => match cmd {
-            HooksCommands::Init => {
+            HooksCommands::Init { no_interactive } => {
                 let output = std::process::Command::new("git")
                     .args(["rev-parse", "--git-dir"])
                     .output()?;
@@ -199,7 +205,35 @@ fn run() -> Result<()> {
                     return Ok(());
                 }
 
-                let config = config::Config::default();
+                let config = if no_interactive {
+                    // Use default configuration
+                    config::Config::default()
+                } else {
+                    // Run interactive setup wizard
+                    match SetupWizard::run() {
+                        Ok(template) => {
+                            let config = template.to_config();
+                            let template_name = match template {
+                                templates::ProjectTemplate::Rust => "Rust Project",
+                                templates::ProjectTemplate::NodeJs => "Node.js Project",
+                                templates::ProjectTemplate::Python => "Python Project",
+                                templates::ProjectTemplate::Go => "Go Project",
+                                templates::ProjectTemplate::Java => "Java Project",
+                                templates::ProjectTemplate::Generic => "Generic Project",
+                            };
+
+                            config.save()?;
+                            SetupWizard::show_success_message(template_name);
+                            return Ok(());
+                        }
+                        Err(e) => {
+                            println!("{}", format!("Setup wizard failed: {}", e).red());
+                            println!("{}", "Falling back to default configuration...".yellow());
+                            config::Config::default()
+                        }
+                    }
+                };
+
                 config.save()?;
                 println!("{}", "✓ Hooks configuration initialized.".green());
                 println!("\n{}", "Next steps:".blue().bold());

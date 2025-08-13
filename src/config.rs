@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ScriptConfig {
     #[serde(default)]
@@ -12,6 +11,16 @@ pub struct ScriptConfig {
     pub max_threads: usize,
     #[serde(default)]
     pub commands: Vec<CommandConfig>,
+}
+
+impl Default for ScriptConfig {
+    fn default() -> Self {
+        Self {
+            parallel: false,
+            max_threads: 1,
+            commands: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -84,7 +93,7 @@ fn default_hooks_dir() -> String {
 }
 
 fn default_max_threads() -> usize {
-    4
+    1
 }
 
 use std::fmt;
@@ -105,8 +114,6 @@ impl fmt::Display for ScriptConfig {
         }
     }
 }
-
-
 
 impl Config {
     pub fn load() -> crate::error::Result<Self> {
@@ -143,7 +150,7 @@ impl Config {
             }
         }
 
-        // Scripts section 
+        // Scripts section
         content.push_str("\nscripts:\n");
         for (name, script) in &self.scripts {
             content.push_str(&format!("  {}:\n", name));
@@ -278,18 +285,19 @@ impl Config {
     }
 
     pub fn add_script(&mut self, name: String, command: String) -> crate::error::Result<()> {
-        self.scripts.insert(name, ScriptConfig {
-            parallel: false,
-            max_threads: default_max_threads(),
-            commands: vec![
-                CommandConfig {
+        self.scripts.insert(
+            name,
+            ScriptConfig {
+                parallel: false,
+                max_threads: default_max_threads(),
+                commands: vec![CommandConfig {
                     command,
                     description: None,
                     working_dir: None,
                     env: HashMap::new(),
-                }
-            ],
-        });
+                }],
+            },
+        );
         self.save()?;
         Ok(())
     }
@@ -311,8 +319,8 @@ impl Default for Config {
         scripts.insert(
             "test-all".to_string(),
             ScriptConfig {
-                parallel: true,
-                max_threads: 4,
+                parallel: false,
+                max_threads: 1,
                 commands: vec![
                     CommandConfig {
                         command: "sh test1.sh".to_string(),
@@ -320,7 +328,7 @@ impl Default for Config {
                         working_dir: Some(PathBuf::from(".")),
                         env: {
                             let mut env = HashMap::new();
-                            env.insert("TEST_MODE".to_string(), "parallel-1".to_string());
+                            env.insert("TEST_MODE".to_string(), "sequential-1".to_string());
                             env.insert("TEST_VALUE".to_string(), "123".to_string());
                             env
                         },
@@ -331,7 +339,7 @@ impl Default for Config {
                         working_dir: Some(PathBuf::from(".")),
                         env: {
                             let mut env = HashMap::new();
-                            env.insert("TEST_MODE".to_string(), "parallel-2".to_string());
+                            env.insert("TEST_MODE".to_string(), "sequential-2".to_string());
                             env.insert("TEST_VALUE".to_string(), "456".to_string());
                             env
                         },
