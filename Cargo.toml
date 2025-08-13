@@ -1,6 +1,6 @@
 [package]
 name = "thira"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 description = "A Git hooks manager and commit message linter for automating development workflows"
 authors = ["Ervan <ervanroot@gmail.com>"]
