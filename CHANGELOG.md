@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/ervan0707/thira/compare/v0.1.0...v0.2.0) (2025-08-16)
+
+
+### Features
+
+* add Ctrl+C cancellation support for script execution ([cb8bf7f](https://github.com/ervan0707/thira/commit/cb8bf7ff8bd60deb861718452157f2335118360f))
+
 # [0.1.0](https://github.com/ervan0707/thira/compare/v0.0.1...v0.1.0) (2025-08-13)
 
 
