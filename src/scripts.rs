@@ -24,16 +24,20 @@ impl ScriptManager {
             cursor, execute,
             style::{Color, Print, SetForegroundColor},
             terminal::{self, Clear, ClearType},
+            event::{self, Event, KeyCode, KeyEvent},
         };
         use parking_lot::Mutex;
         use std::io::stdout;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
         use std::sync::Arc;
         use std::thread::{self, JoinHandle};
-        use std::time::Instant;
+        use std::time::{Duration, Instant};
 
         // Create a mutex-wrapped stdout for thread-safe access
         let stdout = Arc::new(Mutex::new(stdout()));
+        
+        // Create cancellation flag for Ctrl+C handling
+        let cancelled = Arc::new(AtomicBool::new(false));
 
         // Initialize terminal
         {
@@ -60,7 +64,7 @@ impl ScriptManager {
         }
 
         let commands = Arc::new(script_config.commands.clone());
-        let mut handles: Vec<JoinHandle<Result<()>>> = vec![]; // Add type annotation here
+        let mut handles: Vec<JoinHandle<Result<()>>> = vec![]; 
 
         // Calculate screen layout
         let (term_width, term_height) = terminal::size()?;
@@ -95,15 +99,46 @@ impl ScriptManager {
         // For parallel execution with max threads control
         let active_threads = Arc::new(AtomicUsize::new(0));
 
-        // Execute commands
+        // Start Ctrl+C detection thread
+        let cancelled_clone = Arc::clone(&cancelled);
+        let stdout_clone = Arc::clone(&stdout);
+        let ctrl_c_handle = thread::spawn(move || {
+            loop {
+                if event::poll(Duration::from_millis(100)).unwrap_or(false) {
+                    if let Ok(Event::Key(KeyEvent { code: KeyCode::Char('c'), modifiers, .. })) = event::read() {
+                        if modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
+                            cancelled_clone.store(true, Ordering::SeqCst);
+                            let mut stdout = stdout_clone.lock();
+                            let _ = execute!(
+                                stdout,
+                                cursor::MoveTo(0, 0),
+                                SetForegroundColor(Color::Red),
+                                Print("⚠️  Cancelling execution... (Ctrl+C detected)")
+                            );
+                            break;
+                        }
+                    }
+                }
+                if cancelled_clone.load(Ordering::SeqCst) {
+                    break;
+                }
+            }
+        });
+
         // Execute commands
         for (idx, cmd) in commands.iter().enumerate() {
+            // Check for cancellation before starting new commands
+            if cancelled.load(Ordering::SeqCst) {
+                break;
+            }
+
             let cmd = cmd.clone();
             let name = name.to_string();
             let stdout = Arc::clone(&stdout);
             let y_pos = idx as u16 * section_height;
             // let term_width = term_width;
             let active_threads = Arc::clone(&active_threads);
+            let cancelled_flag = Arc::clone(&cancelled);
 
             // If parallel execution is disabled, wait for previous command to complete
             if !script_config.parallel {
@@ -146,6 +181,15 @@ impl ScriptManager {
             let handle = thread::spawn(move || -> Result<()> {
                 let command_start = Instant::now();
 
+                // Check for cancellation before starting
+                if cancelled_flag.load(Ordering::SeqCst) {
+                    active_threads.fetch_sub(1, Ordering::SeqCst);
+                    return Err(HookError::ScriptExecutionError {
+                        script_name: name,
+                        reason: "Execution cancelled".to_string(),
+                    });
+                }
+
                 // Build command with working directory and environment variables
                 let mut child = std::process::Command::new("sh");
                 child.arg("-c").arg(&cmd.command);
@@ -173,10 +217,19 @@ impl ScriptManager {
                 let mut current_line = y_pos + 1;
 
                 // Process output in real-time
-
                 if let Some(child_stdout) = child.stdout.take() {
                     let reader = std::io::BufReader::new(child_stdout);
                     for line in std::io::BufRead::lines(reader).flatten() {
+                        // Check for cancellation during output processing
+                        if cancelled_flag.load(Ordering::SeqCst) {
+                            let _ = child.kill();
+                            active_threads.fetch_sub(1, Ordering::SeqCst);
+                            return Err(HookError::ScriptExecutionError {
+                                script_name: name,
+                                reason: "Execution cancelled".to_string(),
+                            });
+                        }
+
                         let mut stdout = stdout.lock();
                         execute!(
                             stdout,
@@ -188,12 +241,23 @@ impl ScriptManager {
                     }
                 }
 
+                // Check for cancellation before waiting for process completion
+                if cancelled_flag.load(Ordering::SeqCst) {
+                    let _ = child.kill();
+                    active_threads.fetch_sub(1, Ordering::SeqCst);
+                    return Err(HookError::ScriptExecutionError {
+                        script_name: name,
+                        reason: "Execution cancelled".to_string(),
+                    });
+                }
+
                 let status = child.wait().map_err(|e| HookError::ScriptExecutionError {
                     script_name: name.clone(),
                     reason: e.to_string(),
                 })?;
 
                 if !status.success() {
+                    active_threads.fetch_sub(1, Ordering::SeqCst);
                     return Err(HookError::ScriptExecutionError {
                         script_name: name,
                         reason: format!("Command '{}' failed with status {}", cmd.command, status),
@@ -218,6 +282,8 @@ impl ScriptManager {
 
         // Wait for all remaining threads to complete
         let mut all_successful = true;
+        let was_cancelled = cancelled.load(Ordering::SeqCst);
+        
         while let Some(handle) = handles.pop() {
             match handle.join().map_err(|_| HookError::ScriptExecutionError {
                 script_name: name.to_string(),
@@ -240,6 +306,10 @@ impl ScriptManager {
             }
         }
 
+        // Signal the Ctrl+C thread to stop and wait for it
+        cancelled.store(true, Ordering::SeqCst);
+        let _ = ctrl_c_handle.join();
+
         // Show final status
         let total_duration = start_time.elapsed();
         {
@@ -247,14 +317,18 @@ impl ScriptManager {
             execute!(
                 stdout,
                 cursor::MoveTo(0, term_height - 1),
-                SetForegroundColor(if all_successful {
+                SetForegroundColor(if was_cancelled {
+                    Color::Yellow
+                } else if all_successful {
                     Color::Green
                 } else {
                     Color::Red
                 }),
                 Print(format!(
                     "Execution {} in {:.2?} ({})",
-                    if all_successful {
+                    if was_cancelled {
+                        "cancelled"
+                    } else if all_successful {
                         "completed"
                     } else {
                         "failed"
@@ -278,10 +352,14 @@ impl ScriptManager {
             execute!(stdout, terminal::LeaveAlternateScreen)?;
         }
 
-        if !all_successful {
+        if was_cancelled || !all_successful {
             return Err(HookError::ScriptExecutionError {
                 script_name: name.to_string(),
-                reason: "One or more commands failed".to_string(),
+                reason: if was_cancelled {
+                    "Execution was cancelled by user".to_string()
+                } else {
+                    "One or more commands failed".to_string()
+                },
             });
         }
 
