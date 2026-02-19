@@ -390,16 +390,10 @@ jobs:
           path: .
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Publish to crates.io
-        uses: actions-rs/cargo@v1
-        with:
-          command: publish
-          args: --token ${{ secrets.CRATES_IO_TOKEN }} --allow-dirty
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }} --allow-dirty
 
   release:
     name: Create Release
@@ -418,6 +412,9 @@ jobs:
         with:
           name: package-json
           path: packages/npm/thira/
+
+      - name: Copy README to NPM package
+        run: cp README.md packages/npm/thira/
 
       - name: Create dist directory
         run: mkdir -p binary-dist

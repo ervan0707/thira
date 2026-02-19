@@ -82,10 +82,12 @@ impl HookManager {
             // Special handling for the commit-msg hook
             if command.contains("thira") && hook.args.contains(&"commit".to_string()) {
                 // Use the binary path for commit message validation
-                script.push_str(&format!(
-                    "{} commit validate \"$1\"\n",
-                    std::env::current_exe().unwrap().display()
-                ));
+                let binary_path = std::env::current_exe()
+                    .unwrap_or_else(|_| PathBuf::from("thira"))
+                    .display()
+                    .to_string();
+
+                script.push_str(&format!("{} commit validate \"$1\"\n", binary_path));
                 script.push_str("if [ $? -ne 0 ]; then\n");
                 script.push_str("  exit 1\n");
                 script.push_str("fi\n\n");
@@ -122,7 +124,8 @@ impl HookManager {
             .to_string();
 
         // Create regex for variable substitution
-        let re = Regex::new(r"\$\{([^}]+)\}").unwrap();
+        let re = Regex::new(r"\$\{([^}]+)\}")
+            .expect("Failed to compile regex pattern for variable substitution");
 
         // Collect all replacements first to avoid recursive substitution
         let mut replacements = Vec::new();

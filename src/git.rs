@@ -40,6 +40,9 @@ impl GitRepo {
             return Err(HookError::GitNotFound);
         }
 
+        // Validate hooks_dir doesn't contain dangerous patterns
+        crate::error::validate_safe_path(hooks_dir, "hooks_dir")?;
+
         // Construct hooks directory path
         let hooks_dir = if hooks_dir == ".git/hooks" {
             root.join(".git").join("hooks")
@@ -124,6 +127,14 @@ impl GitRepo {
     }
 
     pub fn validate_hook_name(&self, name: &str) -> Result<()> {
+        // Check for path traversal or path separators in hook name
+        if name.contains("..") || name.contains('/') || name.contains('\\') {
+            return Err(HookError::PathTraversalError(format!(
+                "Hook name contains invalid characters: {}",
+                name
+            )));
+        }
+
         let valid_hooks = [
             "pre-commit",
             "prepare-commit-msg",
