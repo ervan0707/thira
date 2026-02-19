@@ -22,7 +22,7 @@ impl CommitLinter {
         }
 
         let re = Regex::new(r"^(?P<type>[a-z]+)(?:\((?P<scope>[a-z-]+)\))?: (?P<subject>.+)")
-            .expect("Invalid regex pattern");
+            .expect("Failed to compile commit message validation regex");
 
         let lines: Vec<&str> = message.lines().collect();
         let first_line = lines.first().ok_or_else(|| HookError::LintError {
@@ -43,7 +43,10 @@ impl CommitLinter {
             })?;
 
         // Validate type
-        let commit_type = caps.name("type").unwrap().as_str();
+        let commit_type = caps
+            .name("type")
+            .expect("Regex matched but 'type' group not found")
+            .as_str();
         if !self.config.types.contains(&commit_type.to_string()) {
             return Err(HookError::LintError {
                 kind: LintErrorKind::InvalidType {
@@ -68,7 +71,10 @@ impl CommitLinter {
         }
 
         // Validate subject
-        let subject = caps.name("subject").unwrap().as_str();
+        let subject = caps
+            .name("subject")
+            .expect("Regex matched but 'subject' group not found")
+            .as_str();
 
         // Check minimum length
         if subject.len() < self.config.min_subject_length {
