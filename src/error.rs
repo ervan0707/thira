@@ -17,6 +17,9 @@ pub enum HookError {
     #[error("Configuration error: {0}")]
     ConfigError(String),
 
+    #[error("Path traversal detected: {0}")]
+    PathTraversalError(String),
+
     #[error("Failed to read/write file at {path}: {source}")]
     FileError {
         path: PathBuf,
@@ -141,3 +144,24 @@ impl std::fmt::Display for LintErrorKind {
 }
 
 pub type Result<T> = std::result::Result<T, HookError>;
+
+/// Validates that a path doesn't contain traversal patterns that could escape the repository
+pub fn validate_safe_path(path: &str, context: &str) -> Result<()> {
+    // Check for path traversal patterns
+    if path.contains("..") {
+        return Err(HookError::PathTraversalError(format!(
+            "{}: path contains '..' which could escape repository boundaries: {}",
+            context, path
+        )));
+    }
+
+    // Check for absolute paths (unless it's the hooks_dir which might need to be absolute)
+    if context != "hooks_dir" && (path.starts_with('/') || path.starts_with('\\')) {
+        return Err(HookError::PathTraversalError(format!(
+            "{}: absolute paths are not allowed: {}",
+            context, path
+        )));
+    }
+
+    Ok(())
+}

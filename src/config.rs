@@ -229,6 +229,7 @@ impl Config {
 
     pub fn validate(&self) -> crate::error::Result<()> {
         self.validate_hooks()?;
+        self.validate_scripts()?;
         self.validate_lint_config()?;
         self.validate_hooks_dir()?;
         Ok(())
@@ -240,6 +241,26 @@ impl Config {
                 "Invalid hooks directory: Cannot use '.git' directly. Use '.git/hooks' instead."
                     .to_string(),
             ));
+        }
+
+        // Validate path doesn't contain traversal patterns
+        crate::error::validate_safe_path(&self.options.hooks_dir, "hooks_dir")?;
+
+        Ok(())
+    }
+
+    fn validate_scripts(&self) -> crate::error::Result<()> {
+        for (name, script) in &self.scripts {
+            for cmd in &script.commands {
+                // Validate working directory doesn't contain path traversal
+                if let Some(working_dir) = &cmd.working_dir {
+                    let dir_str = working_dir.to_string_lossy();
+                    crate::error::validate_safe_path(
+                        &dir_str,
+                        &format!("script '{}' working_dir", name),
+                    )?;
+                }
+            }
         }
         Ok(())
     }
@@ -259,6 +280,15 @@ impl Config {
                         "Empty command in hook '{}'",
                         name
                     )));
+                }
+
+                // Validate working directory doesn't contain path traversal
+                if let Some(working_dir) = &hook.working_dir {
+                    let dir_str = working_dir.to_string_lossy();
+                    crate::error::validate_safe_path(
+                        &dir_str,
+                        &format!("hook '{}' working_dir", name),
+                    )?;
                 }
             }
         }
