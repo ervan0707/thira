@@ -165,3 +165,45 @@ pub fn validate_safe_path(path: &str, context: &str) -> Result<()> {
 
     Ok(())
 }
+
+/// Validates that an environment variable name is safe
+pub fn validate_env_var_name(name: &str, context: &str) -> Result<()> {
+    // Check if empty
+    if name.is_empty() {
+        return Err(HookError::ConfigError(format!(
+            "{}: environment variable name cannot be empty",
+            context
+        )));
+    }
+
+    // Check length
+    if name.len() > 128 {
+        return Err(HookError::ConfigError(format!(
+            "{}: environment variable name too long (max 128 chars): {}",
+            context, name
+        )));
+    }
+
+    // Check if starts with a digit
+    if name
+        .chars()
+        .next()
+        .map(|c| c.is_ascii_digit())
+        .unwrap_or(false)
+    {
+        return Err(HookError::ConfigError(format!(
+            "{}: environment variable name cannot start with a digit: {}",
+            context, name
+        )));
+    }
+
+    // Check if contains only valid characters (alphanumeric + underscore)
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return Err(HookError::ConfigError(format!(
+            "{}: environment variable name can only contain alphanumeric characters and underscores: {}",
+            context, name
+        )));
+    }
+
+    Ok(())
+}

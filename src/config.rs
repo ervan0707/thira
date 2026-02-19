@@ -260,6 +260,11 @@ impl Config {
                         &format!("script '{}' working_dir", name),
                     )?;
                 }
+
+                // Validate environment variable names
+                for (env_name, _env_value) in &cmd.env {
+                    crate::error::validate_env_var_name(env_name, &format!("script '{}'", name))?;
+                }
             }
         }
         Ok(())
